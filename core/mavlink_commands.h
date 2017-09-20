@@ -1,7 +1,7 @@
 #pragma once
 
 #include "mavlink_include.h"
-#include "locked_queue.h"
+#include "locked_list.h"
 #include <cstdint>
 #include <string>
 #include <functional>
@@ -53,30 +53,22 @@ public:
     const MavlinkCommands &operator=(const MavlinkCommands &) = delete;
 
 private:
-    enum class State {
-        NONE,
-        WAITING,
-        IN_PROGRESS,
-        DONE,
-        FAILED
-    } _state = State::NONE;
-    std::mutex _state_mutex {};
-
     struct Work {
-        int retries_to_do = 3;
+        int num_sent = 0;
         double timeout_s = 0.5;
         uint16_t mavlink_command = 0;
         mavlink_message_t mavlink_message {};
         command_result_callback_t callback {};
+        void *timeout_cookie = nullptr;
     };
+
+    const int RETRIES = 3;
 
     void receive_command_ack(mavlink_message_t message);
     void receive_timeout();
 
     DeviceImpl *_parent;
-    LockedQueue<Work> _work_queue {};
-
-    void *_timeout_cookie = nullptr;
+    LockedList<Work> _work_list {};
 };
 
 } // namespace dronecore
